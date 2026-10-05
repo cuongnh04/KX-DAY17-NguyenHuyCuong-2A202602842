@@ -40,15 +40,15 @@ class BaselineAgent:
         - Otherwise use a deterministic offline path.
         """
 
-        raise NotImplementedError
+        return self._reply_offline(thread_id, message)
 
     def token_usage(self, thread_id: str) -> int:
         # TODO: return cumulative agent token count for one thread.
-        raise NotImplementedError
+        return self.sessions.get(thread_id, SessionState()).token_usage
 
     def prompt_token_usage(self, thread_id: str) -> int:
         # TODO: estimate how much prompt context this baseline kept processing.
-        raise NotImplementedError
+        return self.sessions.get(thread_id, SessionState()).prompt_tokens_processed
 
     def compaction_count(self, thread_id: str) -> int:
         # Baseline has no compact memory.
@@ -64,7 +64,15 @@ class BaselineAgent:
         - Never remember facts across different thread ids
         """
 
-        raise NotImplementedError
+        state = self.sessions.setdefault(thread_id, SessionState())
+        prompt_load = estimate_tokens(" ".join(m["content"] for m in state.messages))
+        response = "Mình đã ghi nhận: " + message[:160]
+        state.messages.extend([{"role": "user", "content": message},
+                               {"role": "assistant", "content": response}])
+        state.prompt_tokens_processed += prompt_load + estimate_tokens(message)
+        state.token_usage += estimate_tokens(response)
+        return {"response": response, "token_usage": estimate_tokens(response),
+                "prompt_tokens": prompt_load + estimate_tokens(message)}
 
     def _maybe_build_langchain_agent(self):
         """Student TODO: optionally wire `create_agent` + `InMemorySaver` here.
@@ -72,4 +80,4 @@ class BaselineAgent:
         Use `build_chat_model(self.config.model)` so the baseline can run with any supported provider.
         """
 
-        raise NotImplementedError
+        return None

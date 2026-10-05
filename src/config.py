@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from model_provider import ProviderConfig
+import os
 
 
 @dataclass
@@ -49,4 +50,20 @@ def load_config(base_dir: Path | None = None) -> LabConfig:
     # TODO: create `root / "state"`.
     # TODO: choose sensible defaults for compact memory.
 
-    raise NotImplementedError("Students should implement load_config().")
+    data_dir = root / "data"
+    state_dir = root / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    provider = os.getenv("LLM_PROVIDER", "offline")
+    model = ProviderConfig(
+        provider=provider,
+        model_name=os.getenv("LLM_MODEL", "gpt-4o-mini"),
+        temperature=float(os.getenv("LLM_TEMPERATURE", "0")),
+        api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY"),
+        base_url=os.getenv("CUSTOM_BASE_URL") or os.getenv("OLLAMA_BASE_URL"),
+    )
+    judge = ProviderConfig(provider=os.getenv("JUDGE_PROVIDER", provider),
+                           model_name=os.getenv("JUDGE_MODEL", model.model_name),
+                           temperature=0, api_key=model.api_key, base_url=model.base_url)
+    return LabConfig(root, data_dir, state_dir,
+                     int(os.getenv("COMPACT_THRESHOLD_TOKENS", "180")),
+                     int(os.getenv("COMPACT_KEEP_MESSAGES", "4")), model, judge)
